@@ -17,6 +17,7 @@ class RandomMaskingGenerator:
         self.height, self.width = input_size
 
         self.num_patches = self.height * self.width
+        print("num_patches = num_patches", self.num_patches, input_size)
         self.num_mask = int(mask_ratio * self.num_patches)
 
     def __repr__(self):

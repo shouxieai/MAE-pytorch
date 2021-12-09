@@ -85,10 +85,11 @@ class Attention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
     def forward(self, x):
-        B, N, C = x.shape
+        B, N, C = map(int, x.shape)
         qkv_bias = None
         if self.q_bias is not None:
             qkv_bias = torch.cat((self.q_bias, torch.zeros_like(self.v_bias, requires_grad=False), self.v_bias))
+            qkv_bias = torch.tensor(qkv_bias.data).to(qkv_bias.device)
         # qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         qkv = F.linear(input=x, weight=self.qkv.weight, bias=qkv_bias)
         qkv = qkv.reshape(B, N, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
@@ -155,11 +156,13 @@ class PatchEmbed(nn.Module):
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x, **kwargs):
-        B, C, H, W = x.shape
+        B, C, H, W = map(int, x.shape)
         # FIXME look at relaxing size constraints
         assert H == self.img_size[0] and W == self.img_size[1], \
             f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
-        x = self.proj(x).flatten(2).transpose(1, 2)
+        #x = self.proj(x).flatten(2).transpose(1, 2)
+        x = self.proj(x)
+        x = x.view(-1, int(x.size(1)), int(x.size(2)) * int(x.size(2))).transpose(1, 2)
         return x
     
 # sin-cos position encoding
@@ -263,7 +266,7 @@ class VisionTransformer(nn.Module):
 
     def forward_features(self, x):
         x = self.patch_embed(x)
-        B, _, _ = x.size()
+        B, _, _ = map(int, x.size())
 
         # cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         # x = torch.cat((cls_tokens, x), dim=1)

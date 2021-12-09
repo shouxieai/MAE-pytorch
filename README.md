@@ -1,3 +1,8 @@
+# 关于Fork
+- fork这个工程并对其进行修改，保留encoder，测试其encoder特征描述能力
+- 若想访问完整项目并测试，请直接访问[源地址](https://github.com/pengzhiliang/MAE-pytorch)
+
+
 # Unofficial PyTorch implementation of [Masked Autoencoders Are Scalable Vision Learners](https://arxiv.org/abs/2111.06377)
 
 This repository is built upon [BEiT](https://github.com/microsoft/unilm/tree/master/beit), thanks very much!

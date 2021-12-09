@@ -36,9 +36,9 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 def get_args():
     parser = argparse.ArgumentParser('MAE visualization reconstruction script', add_help=False)
-    parser.add_argument('img_path', type=str, help='input image path')
-    parser.add_argument('save_path', type=str, help='save image path')
-    parser.add_argument('model_path', type=str, help='checkpoint path of model')
+    parser.add_argument('--img_path', default="files/ILSVRC2012_val_00031649.JPEG", type=str, help='input image path')
+    parser.add_argument('--save_path', default="./", type=str, help='save image path')
+    parser.add_argument('--model_path', default="pretrain_mae_vit_base_mask_0.75_400e.pth", type=str, help='checkpoint path of model')
 
     parser.add_argument('--input_size', default=224, type=int,
                         help='images input size for backbone')
@@ -84,6 +84,7 @@ def main(args):
     checkpoint = torch.load(args.model_path, map_location='cpu')
     model.load_state_dict(checkpoint['model'])
     model.eval()
+    print(type(model))
 
     with open(args.img_path, 'rb') as f:
         img = Image.open(f)
@@ -93,12 +94,16 @@ def main(args):
     transforms = DataAugmentationForMAE(args)
     img, bool_masked_pos = transforms(img)
     bool_masked_pos = torch.from_numpy(bool_masked_pos)
+    print(bool_masked_pos.shape)
 
     with torch.no_grad():
         img = img[None, :]
         bool_masked_pos = bool_masked_pos[None, :]
         img = img.to(device, non_blocking=True)
         bool_masked_pos = bool_masked_pos.to(device, non_blocking=True).flatten(1).to(torch.bool)
+        torch.onnx.export(model, (img,), "mae.onnx", opset_version=11, enable_onnx_checker=False)
+        print("done.")
+        exit(0)
         outputs = model(img, bool_masked_pos)
 
         #save original img
@@ -121,6 +126,7 @@ def main(args):
 
         #save reconstruction img
         rec_img = rearrange(img_patch, 'b n (p c) -> b n p c', c=3)
+        print(rec_img.shape)
         # Notice: To visualize the reconstruction image, we add the predict and the original mean and var of each patch. Issue #40
         rec_img = rec_img * (img_squeeze.var(dim=-2, unbiased=True, keepdim=True).sqrt() + 1e-6) + img_squeeze.mean(dim=-2, keepdim=True)
         rec_img = rearrange(rec_img, 'b (h w) (p1 p2) c -> b c (h p1) (w p2)', p1=patch_size[0], p2=patch_size[1], h=14, w=14)

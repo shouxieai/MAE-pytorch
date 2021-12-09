@@ -41,7 +41,6 @@ class PretrainVisionTransformerEncoder(nn.Module):
         self.patch_embed = PatchEmbed(
             img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
-
         # TODO: Add the cls token
         # self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         if use_learnable_pos_emb:
@@ -58,6 +57,8 @@ class PretrainVisionTransformerEncoder(nn.Module):
                 init_values=init_values)
             for i in range(depth)])
         self.norm =  norm_layer(embed_dim)
+        
+        print("=====", embed_dim, num_classes)
         self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
         if use_learnable_pos_emb:
@@ -90,15 +91,15 @@ class PretrainVisionTransformerEncoder(nn.Module):
         self.num_classes = num_classes
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-    def forward_features(self, x, mask):
+    def forward_features(self, x):
         x = self.patch_embed(x)
         
         # cls_tokens = self.cls_token.expand(batch_size, -1, -1) 
         # x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed.type_as(x).to(x.device).clone().detach()
 
-        B, _, C = x.shape
-        x_vis = x[~mask].reshape(B, -1, C) # ~mask means visible
+        B, _, C = map(int, x.shape)
+        x_vis = x.reshape(B, -1, C) # ~mask means visible
 
         for blk in self.blocks:
             x_vis = blk(x_vis)
@@ -106,8 +107,8 @@ class PretrainVisionTransformerEncoder(nn.Module):
         x_vis = self.norm(x_vis)
         return x_vis
 
-    def forward(self, x, mask):
-        x = self.forward_features(x, mask)
+    def forward(self, x):
+        x = self.forward_features(x)
         x = self.head(x)
         return x
 
@@ -258,9 +259,10 @@ class PretrainVisionTransformer(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token', 'mask_token'}
 
-    def forward(self, x, mask):
+    def forward(self, x):
         
-        x_vis = self.encoder(x, mask) # [B, N_vis, C_e]
+        x_vis = self.encoder(x) # [B, N_vis, C_e]
+        return x_vis
         x_vis = self.encoder_to_decoder(x_vis) # [B, N_vis, C_d]
 
         B, N, C = x_vis.shape
